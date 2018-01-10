@@ -11,58 +11,28 @@ function monthDiff(d1, d2) {
     return months; 
 }
 
-/*
-function retornaValor(ativo) {
-  var parsedBovespaResponse = buscaCotacaoBovespa(ativo);
-  if (parsedBovespaResponse != undefined && parsedBovespaResponse.getRootElement().getChildren()[0] != undefined) {
-    var ultimaCotacao = parsedBovespaResponse.getRootElement().getChildren()[0].getAttribute("Ultimo").getValue();  
-    var dataCotacao = parsedBovespaResponse.getRootElement().getChildren()[0].getAttribute("Data").getValue();
-    var oscilacaoCotacao = parsedBovespaResponse.getRootElement().getChildren()[0].getAttribute("Oscilacao").getValue();
-    return ultimaCotacao+';'+dataCotacao+';'+oscilacaoCotacao;
-  } else {
-    return undefined;
-  }
-}
-*/
-
 function automático() {
   var d = new Date();
   var h = d.getHours();
   var m = d.getMinutes();
   var w = d.getDay();
 
-  if (w > 0 && w < 6 && h > 9 && h < 20) { 
+  if (w > 0 && w < 6 && h > 8 && h < 20) { 
      var ss = SpreadsheetApp.getActiveSpreadsheet();   
      var sheet = ss.getSheets()[0];           
      var dataOperacoes = [];
      for (var c = 12 ; c<=18 ; c++) {
-       var valor_texto = sheet.getRange("B"+c).getValue(); 
-       var valor = new Date(valor_texto.split(" ")[0].split("/")[2],valor_texto.split(" ")[0].split("/")[1]-1,valor_texto.split(" ")[0].split("/")[0]);
-       valor.setHours(valor_texto.split(" ")[1].split(":")[0],valor_texto.split(" ")[1].split(":")[1],valor_texto.split(" ")[1].split(":")[2],00);
-       valor = Utilities.formatDate(valor, "GMT", "yyyyMMdd HH:mm:ss");
-       dataOperacoes.push(valor);
+       dataOperacoes.push(sheet.getRange("B"+c).getValue());
      }    
      dataOperacoes.sort();
      for (var c = 12 ; c<=18 ; c++) {
-       var valor_texto = sheet.getRange("B"+c).getValue(); 
-       var valor = new Date(valor_texto.split(" ")[0].split("/")[2],valor_texto.split(" ")[0].split("/")[1]-1,valor_texto.split(" ")[0].split("/")[0]);
-       valor.setHours(valor_texto.split(" ")[1].split(":")[0],valor_texto.split(" ")[1].split(":")[1],valor_texto.split(" ")[1].split(":")[2],00);
-       var campo = Utilities.formatDate(valor, "GMT", "yyyyMMdd HH:mm:ss");       
-       if (campo == dataOperacoes[0])
+       var campo = sheet.getRange("B"+c).getValue();
+       if (Utilities.formatDate(campo, "GMT", "yyyyMMdd HH:mm:ss") == Utilities.formatDate(dataOperacoes[0], "GMT", "yyyyMMdd HH:mm:ss"))
        {
-         var d = new Date();
-         var timeHoje = Utilities.formatDate(d, "GMT-03:00", "dd/MM/yyyy HH:mm:ss");         
-         sheet.getRange("B"+c).setValue(timeHoje);         
-         var valorCotacao = buscaCotacaoYahoo(sheet.getRange("A"+c).getValue());
-         sheet.getRange("D"+c).setValue(valorCotacao.replace('.',','));          
-         /*
-         var retorno = retornaValor(sheet.getRange("A"+c).getValue());
-         if (retorno != undefined) {          
-           var valores = retorno.split(";");
-           sheet.getRange("B"+c).setValue(valores[1]);         
-           sheet.getRange("D"+c).setValue(valores[0]);         
-         } 
-         */
+         var t = buscaCotacaoMSN(sheet.getRange("A"+c).getValue()); 
+         var d = new Date(t["Ld"].substring(6,10),Number(t["Ld"].substring(3,5))-1,t["Ld"].substring(0,2),t["Lt"].substring(0,2),t["Lt"].substring(3,5),t["Lt"].substring(6,8));       
+         sheet.getRange("B"+c).setValue(d); 
+         sheet.getRange("D"+c).setValue(t["Lp"].toString().replace('.',','));                                 
        }        
      }
   }
@@ -74,48 +44,31 @@ function autualizatudo() {
   var m = d.getMinutes();
   var w = d.getDay();
 
-  if (w > 0 && w < 6 && h > 9 && h < 20) {
+  if (w > 0 && w < 6 && h > 8 && h < 20) {
      var ss = SpreadsheetApp.getActiveSpreadsheet();   
      var sheet = ss.getSheets()[0];           
      for (var c = 12 ; c<=18 ; c++) {
-       var d = new Date();
-       var timeHoje = Utilities.formatDate(d, "GMT-03:00", "dd/MM/yyyy HH:mm:ss");         
-       sheet.getRange("B"+c).setValue(timeHoje);         
-       var valorCotacao = buscaCotacaoYahoo(sheet.getRange("A"+c).getValue());
-       sheet.getRange("D"+c).setValue(valorCotacao.replace('.',','));                 
-       /*
-       var retorno = retornaValor(sheet.getRange("A"+c).getValue());
-       if (retorno != undefined) {          
-         var valores = retorno.split(";");
-         sheet.getRange("B"+c).setValue(valores[1]);         
-         sheet.getRange("D"+c).setValue(valores[0]);         
-         //sheet.getRange("E"+c).setValue(valores[2]+"%");         
-       }
-       */
+       var t = buscaCotacaoMSN(sheet.getRange("A"+c).getValue()); 
+       var d = new Date(t["Ld"].substring(6,10),Number(t["Ld"].substring(3,5))-1,t["Ld"].substring(0,2),t["Lt"].substring(0,2),t["Lt"].substring(3,5),t["Lt"].substring(6,8));       
+       sheet.getRange("B"+c).setValue(d);
+       sheet.getRange("D"+c).setValue(t["Lp"].toString().replace('.',','));                        
      }
   }
 }
 
-function buscaCotacaoYahoo(ativo) {
-  var caminho = "http://finance.yahoo.com/d/quotes.csv?s="+ativo+".SA&f=l1";
-  var csv = Utilities.parseCsv(UrlFetchApp.fetch(caminho).getContentText());
-  return csv[0][0];
+function buscaCotacaoMSN(ativo) {
+  var caminho = "https://finance.services.appex.bing.com/Market.svc/ChartAndQuotes?symbols=56.1."+ativo+".BSP&chartType=1d&isETF=false&iseod=False&lang=pt-BR&isCS=false&isVol=true";
+  var json = JSON.parse(UrlFetchApp.fetch(caminho).getContentText());
+  return {
+    Lp: json[0]["Quotes"]["Lp"],
+    Ld: json[0]["Quotes"]["Ld"],
+    Lt: json[0]["Quotes"]["Lt"]
+  };
 }
-
-/*
-function buscaCotacaoBovespa(ativo) {
-  var caminho = "www.bmfbovespa.com.br/Pregao-Online/ExecutaAcaoAjax.asp?CodigoPapel="+ativo;    
-  try {
-    return XmlService.parse(UrlFetchApp.fetch(caminho).getContentText());
-  } catch (e) {
-    return undefined;
-  }
-}
-*/
 
 function calculaPrecoMedio(ativo, data_limite, modo) {
-  //data_limite = '02/06/2016';
-  //ativo = "ARZZ3";
+  //data_limite = '06/01/2017';
+  //ativo = "TOTS3";
   //modo = 2;
     
   if (data_limite == undefined)
